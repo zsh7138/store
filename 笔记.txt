@@ -1,0 +1,101 @@
+安装低版本的webpack 以及低版本的webpack-dev-server(为兼容IE8)
+npm install webpack@1.15.0 --save-dev
+npm install webpack-dev-server@1.15.0  --save-dev 
+
+一.对脚本的处理
+
+1. js用什么loader加载?
+
+   保证兼容性,使用webpack自带的js加载器.
+
+2.entry中有多个js应该怎么办?
+   
+    entry 是一个单入口,以下面对象形式可以设置为多入口.webpack1.15.0版本需要给路径加'[]'
+    entry: {
+            index: ['./src/page/index/index'],
+            login: ['./src/page/login/login']
+  }
+
+3.output如何分不同文件夹存放相应文件?
+    var path= require('path')  // 先引入path
+    output:{
+	        path: path.resolve(__dirname, 'dist')
+			filename: 'js/[name].js'  // 'js/[name].js' 生成对应的存放于'js'目录下的打包文件,[name]是一个变量
+	}
+
+4.jquery的引入方法?
+
+    在index.html中引入jq的cdn,而不是用npm安装.后者需要在每一个html中 require('jquery')太笨
+	在以上前提下假如我们需要用模块化的方式引入jquery,需要在webpack.config.JS中配置 
+	// 举一反三
+	externals:{
+	    'jquery': 'window.jQuery'
+	}
+
+5.怎样提取公共模块?
+     
+     我们用CommonsChunkPlugin插件,在webpack.config.js下配置
+	 
+     plugins:[
+        //此处用到了'webpack',但我们并没有这个变量,所以需要require
+        new webpack.optimize.CommonsChunkPlugin({
+        name: 'commons',
+        // output中配置了输出的根目录,所以后面的路径都设置在 dist目录下. 这样公共的js都会被打包进/dist/js/base.js
+        filename : 'js/base.js'
+    })
+  ]
+
+
+二. 对样式的处理
+
+1.用什么loader来加载样式?
+    npm install css-loader style-losder --save-dev
+	在 webpack.config.js 中
+	    module:{
+           loaders:[
+           { test: /\.css$/, loader: 'style-loader!css-loader' } // 以.css结尾的文件执行 css-loader和style-loader
+    ]
+  },
+    这样,我们的css样式就会打包进 引用此css文件的 js文件中.
+	
+
+2.webpack把css打包成了js模块,这样样式会在文档加载完成才开始加载,怎样使用webpack把css打包成独立的单独文件?
+
+     我们用一个插件
+	 cnpm install extract-text-webpack-plugin@1.0.1  --save-dev // npm^3版本不再自动检测这个插件版本号,我们要自己手动输入低版本
+	 在 config.js下配置
+	   var ExtractTextPlugin = require("extract-text-webpack-plugin");
+	 在plugin下
+	   new ExtractTextPlugin("css/[name].css") // css文件打包到 /dist/css/下  [name]是一个变量
+	   
+三. 对html的处理
+
+    我们用插件 html-webpack-plugin
+	首先是 npm install html-webpack-plugin --save-dev  (最好手动输入,因为我发现每次shift+ins时总有莫名其妙的报错,手动输入就没错)
+	 然后是require进config.js 
+	 var HtmlWebpackPlugin = require('html-webpack-plugin');
+	 
+	 然后在plugins下添加
+	   new HtmlWebpackPlugin({
+          filename: 'view/index.html',
+          template: './src/view/index.html',
+          inject  : true,
+          hash    : true,
+          chunks  : ['common','index']
+
+    })
+	这是一个页面,假如 我们有几十个页面,我们就要添加几十个 HtmlWebpackPlugin,这样显然不是我们想要的
+	怎样解决?
+	 我们可以封装一个方法
+	 var getHtmlConfig = function(name){
+	      filename: 'view/'+ name +'.html',
+          template: './src/view/'+ name +'.html',
+          inject  : true,
+          hash    : true,
+          chunks  : ['common',name]
+	 }
+	 然后在plugins下添加
+	 new HtmlWebpackPlugin(getHtmlConfig('index')) // index 加''因为这里index是一个字符串参数
+
+	 
+
